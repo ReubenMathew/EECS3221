@@ -12,6 +12,7 @@ float waiting = 0.0;
 float response = 0.0;
 
 void bubbleSort(struct node *start);
+void swap(struct node *a, struct node *b);
 
 void bubbleSort(struct node *start)
 {
@@ -30,7 +31,7 @@ void bubbleSort(struct node *start)
 
         while (ptr->next != left)
         {
-            if (ptr->task->priority < ptr->next->task->priority)
+            if (ptr->task->burst > ptr->next->task->burst)
             {
                 swap(ptr, ptr->next);
                 swapped = 1;

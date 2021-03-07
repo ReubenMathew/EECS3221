@@ -36,6 +36,20 @@ void reverseList()
     }
 }
 
+float waiting_time(struct node *temp)
+{
+    int sum = 0;
+
+    while (temp != NULL)
+    {
+        // printf("%d\n", temp->task->waiting);
+        sum += temp->task->waiting;
+        temp = temp->next;
+    }
+
+    return (float)sum / length;
+}
+
 float turnaround_time(struct node *temp)
 {
     int sum = 0;
