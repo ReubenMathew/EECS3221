@@ -10,6 +10,8 @@
 #include "task.h"
 
 // add a new task to the list of tasks
+int length = 0;
+
 void insert(struct node **head, Task *newTask)
 {
     // add the new task to the list
@@ -18,6 +20,7 @@ void insert(struct node **head, Task *newTask)
     newNode->task = newTask;
     newNode->next = *head;
     *head = newNode;
+    length++;
 }
 
 // delete the selected task from the list
@@ -45,6 +48,7 @@ void delete (struct node **head, Task *task)
 
         prev->next = temp->next;
     }
+    length--;
 }
 
 // traverse the list
