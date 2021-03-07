@@ -12,6 +12,12 @@ float turnaround = 0.0;
 float waiting = 0.0;
 float response = 0.0;
 
+int waiting_times[1024];
+int turnaround_times[1024];
+int tasks_completed[1024];
+
+int total = 0;
+
 void bubbleSort(struct node *start);
 void reverseList();
 void taskArray(struct node *start);
@@ -19,10 +25,31 @@ void printTasks(Task *tasks, int length);
 void mux(Task *tasks, int length);
 void rr(Task *tasks, int length);
 
+void printArrays(int *arr, int *arr2)
+{
+    for (int i = 0; i < length; i++)
+    {
+        printf("%d\t%d\n", arr[i], arr2[i]);
+    }
+}
+
+void addWaiting(int time)
+{
+    for (int i = 0; i < length; ++i)
+    {
+        if (tasks_completed[i] == 0)
+        {
+            waiting_times[i] += time;
+        }
+    }
+    // printf("\n");
+    // printArrays(waiting_times, tasks_completed);
+}
+
 void rr(Task *tasks, int length)
 {
     int inProgress = length;
-    int flag = 0, total = 0, i = 0;
+    int flag = 0, i = 0;
 
     while (inProgress > 0)
     {
@@ -30,29 +57,36 @@ void rr(Task *tasks, int length)
         if (tasks[i].burst < QUANTUM && tasks[i].burst > 0)
         {
             run(task, task->burst);
-            total += task->burst;
+            tasks_completed[task->tid] = 1;
+            addWaiting(task->burst);
             task->burst = 0;
             flag = 1;
         }
         else if (task->burst > 0)
         {
+            tasks_completed[task->tid] = 1;
             run(task, QUANTUM);
             task->burst -= QUANTUM;
-            flag = task->burst == 0 ? 1 : flag;
-            total += QUANTUM;
+            if (task->burst == 0)
+            {
+                flag = 1;
+                tasks_completed[task->tid] = 1;
+                addWaiting(QUANTUM);
+            }
+            else
+            {
+                total += QUANTUM;
+                addWaiting(QUANTUM);
+                tasks_completed[task->tid] = 0;
+            }
         }
         if (task->burst == 0 && flag == 1)
         {
-            waiting += total * 1.0;
             inProgress--;
             flag = 0;
         }
-        i++;
-        if (i == length)
-        {
-            i = 0;
-        }
-        // printf("%d %d\n", i, inProgress);
+
+        i = i == length - 1 ? 0 : i + 1;
     }
 }
 
@@ -66,6 +100,10 @@ void mux(Task *tasks, int length)
     {
         Task *task = &tasks[0];
         run(task, task->burst);
+        total += task->burst;
+
+        tasks_completed[task->tid] = 1;
+        addWaiting(task->burst);
     }
 }
 
@@ -74,6 +112,10 @@ void schedule()
     reverseList();
     bubbleSort(head);
     taskArray(head);
+
+    waiting_times[length] = '\0';
+    turnaround_times[length] = '\0';
+    tasks_completed[length] = '\0';
 
     int currPriority = tasks[0].priority;
     Task *tempArr = malloc(length * sizeof *tempArr);
@@ -105,9 +147,20 @@ void schedule()
     }
     mux(tempArr, idx);
 
-    waiting = waiting / length;
+    for (int i = 0; i < length; i++)
+    {
+        turnaround_times[i] = waiting_times[i] + tasks[i].burstBalance;
+    }
 
-    print_stats(waiting, 0, 0);
+    for (int i = 0; i < length; i++)
+    {
+        waiting += waiting_times[i];
+        turnaround += turnaround_times[i];
+    }
+    waiting /= length;
+    turnaround /= length;
+
+    print_stats(waiting, turnaround, 0);
 }
 
 void add(char *name, int priority, int burst)

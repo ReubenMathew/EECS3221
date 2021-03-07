@@ -13,26 +13,26 @@ float response = 0.0;
 
 void reverseList()
 {
-    struct node *prev, *curr;
+    struct node *prevNode, *curNode;
 
     if (head != NULL)
     {
-        prev = head;
-        curr = head->next;
+        prevNode = head;
+        curNode = head->next;
         head = head->next;
 
-        prev->next = NULL;
+        prevNode->next = NULL;
 
         while (head != NULL)
         {
             head = head->next;
-            curr->next = prev;
+            curNode->next = prevNode;
 
-            prev = curr;
-            curr = head;
+            prevNode = curNode;
+            curNode = head;
         }
 
-        head = prev;
+        head = prevNode;
     }
 }
 
@@ -42,7 +42,7 @@ float waiting_time(struct node *temp)
 
     while (temp != NULL)
     {
-        temp->task->waiting = temp->task->turnaround - temp->task->burst;
+        temp->task->waiting = temp->task->turnaround - temp->task->burstBalance;
         sum += temp->task->waiting;
         temp = temp->next;
     }
@@ -77,7 +77,7 @@ void waiting_time_helper(struct node *temp, int slice)
 
 void turnaround_time_helper(struct node *temp)
 {
-    temp->task->turnaround = temp->task->burstBalance + temp->task->waiting;
+    temp->task->turnaround = temp->task->burst + temp->task->waiting;
     temp = temp->next;
 }
 
@@ -106,14 +106,14 @@ void schedule()
         while (temp != NULL)
         {
             int runtime = 0;
-            int burst = temp->task->burstBalance;
+            int burst = temp->task->burst;
 
             if (burst >= QUANTUM)
             {
                 runtime = QUANTUM;
                 run(temp->task, runtime);
 
-                temp->task->burstBalance -= QUANTUM;
+                temp->task->burst -= QUANTUM;
                 // printf("New burst: %d\n", temp->task->burst);
 
                 waiting_time_helper(head, runtime);
@@ -124,16 +124,16 @@ void schedule()
             }
             else
             {
-                runtime = temp->task->burstBalance;
+                runtime = temp->task->burst;
                 run(temp->task, runtime);
 
-                temp->task->burstBalance = 0;
+                temp->task->burst = 0;
 
                 waiting_time_helper(head, runtime);
                 turnaround_time_helper(temp);
             }
 
-            if (temp->task->burstBalance == 0)
+            if (temp->task->burst == 0)
             {
                 temp->task->completed = 1;
             }
