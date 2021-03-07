@@ -1,0 +1,6 @@
+*.o
+fcfs
+sjf
+rr
+priority
+priority_rr
