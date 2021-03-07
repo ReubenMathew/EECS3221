@@ -155,7 +155,7 @@ void bubbleSort(struct node *start)
 
         while (ptr1->next != lptr)
         {
-            if (ptr1->task->priority < ptr1->next->task->priority)
+            if (ptr1->task->burst > ptr1->next->task->burst)
             {
                 swap(ptr1, ptr1->next);
                 swapped = 1;
