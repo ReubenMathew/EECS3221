@@ -13,31 +13,58 @@ float response = 0.0;
 
 void bubbleSort(struct node *start);
 
+void bubbleSort(struct node *start)
+{
+    int swapped;
+    struct node *ptr;
+    struct node *left = NULL;
+
+    /* Checking for empty list */
+    if (start == NULL)
+        return;
+
+    do
+    {
+        swapped = 0;
+        ptr = start;
+
+        while (ptr->next != left)
+        {
+            if (ptr->task->priority < ptr->next->task->priority)
+            {
+                swap(ptr, ptr->next);
+                swapped = 1;
+            }
+            ptr = ptr->next;
+        }
+        left = ptr;
+    } while (swapped);
+}
+
 void reverseList()
 {
-    struct node *prevNode, *curNode;
+    struct node *prev, *curr;
 
     if (head != NULL)
     {
-        prevNode = head;
-        curNode = head->next;
+        prev = head;
+        curr = head->next;
         head = head->next;
 
-        prevNode->next = NULL;
+        prev->next = NULL;
 
         while (head != NULL)
         {
             head = head->next;
-            curNode->next = prevNode;
+            curr->next = prev;
 
-            prevNode = curNode;
-            curNode = head;
+            prev = curr;
+            curr = head;
         }
 
-        head = prevNode;
+        head = prev;
     }
 }
-
 float waiting_time(struct node *temp)
 {
     int sum = 0;
@@ -136,32 +163,4 @@ void swap(struct node *a, struct node *b)
     Task *temp = a->task;
     a->task = b->task;
     b->task = temp;
-}
-
-void bubbleSort(struct node *start)
-{
-    int swapped;
-    struct node *ptr1;
-    struct node *lptr = NULL;
-
-    /* Checking for empty list */
-    if (start == NULL)
-        return;
-
-    do
-    {
-        swapped = 0;
-        ptr1 = start;
-
-        while (ptr1->next != lptr)
-        {
-            if (ptr1->task->burst > ptr1->next->task->burst)
-            {
-                swap(ptr1, ptr1->next);
-                swapped = 1;
-            }
-            ptr1 = ptr1->next;
-        }
-        lptr = ptr1;
-    } while (swapped);
 }

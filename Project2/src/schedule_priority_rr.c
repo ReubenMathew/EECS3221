@@ -22,31 +22,37 @@ void rr(Task *tasks, int length);
 void rr(Task *tasks, int length)
 {
     int inProgress = length;
-    int flag = 0, total = 0, i;
+    int flag = 0, total = 0, i = 0;
 
-    for (total = 0, i = 0; inProgress != 0;)
+    while (inProgress > 0)
     {
         Task *task = &tasks[i];
-        if (tasks[i].burstBalance < QUANTUM && tasks[i].burstBalance > 0)
+        if (tasks[i].burst < QUANTUM && tasks[i].burst > 0)
         {
-            run(task, tasks[i].burstBalance);
-            total += tasks[i].burstBalance;
-            tasks[i].burstBalance = 0;
+            run(task, task->burst);
+            total += task->burst;
+            task->burst = 0;
             flag = 1;
         }
-        else if (tasks[i].burstBalance > 0)
+        else if (task->burst > 0)
         {
-            tasks[i].burstBalance -= QUANTUM;
-            total += QUANTUM;
             run(task, QUANTUM);
+            task->burst -= QUANTUM;
+            flag = task->burst == 0 ? 1 : flag;
+            total += QUANTUM;
         }
-        if (tasks[i].burstBalance == 0 && flag == 1)
+        if (task->burst == 0 && flag == 1)
         {
+            waiting += total * 1.0;
             inProgress--;
             flag = 0;
         }
-
         i++;
+        if (i == length)
+        {
+            i = 0;
+        }
+        // printf("%d %d\n", i, inProgress);
     }
 }
 
@@ -55,8 +61,6 @@ void mux(Task *tasks, int length)
     if (length > 1)
     {
         rr(tasks, length);
-        // printf("RR\t\t");
-        // printTasks(tasks, length);
     }
     else
     {
@@ -100,6 +104,10 @@ void schedule()
         currPriority = tasks[i].priority;
     }
     mux(tempArr, idx);
+
+    waiting = waiting / length;
+
+    print_stats(waiting, 0, 0);
 }
 
 void add(char *name, int priority, int burst)
@@ -163,8 +171,8 @@ void swap(struct node *a, struct node *b)
 void bubbleSort(struct node *start)
 {
     int swapped;
-    struct node *ptr1;
-    struct node *lptr = NULL;
+    struct node *ptr;
+    struct node *left = NULL;
 
     /* Checking for empty list */
     if (start == NULL)
@@ -173,42 +181,42 @@ void bubbleSort(struct node *start)
     do
     {
         swapped = 0;
-        ptr1 = start;
+        ptr = start;
 
-        while (ptr1->next != lptr)
+        while (ptr->next != left)
         {
-            if (ptr1->task->priority < ptr1->next->task->priority)
+            if (ptr->task->priority < ptr->next->task->priority)
             {
-                swap(ptr1, ptr1->next);
+                swap(ptr, ptr->next);
                 swapped = 1;
             }
-            ptr1 = ptr1->next;
+            ptr = ptr->next;
         }
-        lptr = ptr1;
+        left = ptr;
     } while (swapped);
 }
 
 void reverseList()
 {
-    struct node *prevNode, *curNode;
+    struct node *prev, *curr;
 
     if (head != NULL)
     {
-        prevNode = head;
-        curNode = head->next;
+        prev = head;
+        curr = head->next;
         head = head->next;
 
-        prevNode->next = NULL;
+        prev->next = NULL;
 
         while (head != NULL)
         {
             head = head->next;
-            curNode->next = prevNode;
+            curr->next = prev;
 
-            prevNode = curNode;
-            curNode = head;
+            prev = curr;
+            curr = head;
         }
 
-        head = prevNode;
+        head = prev;
     }
 }

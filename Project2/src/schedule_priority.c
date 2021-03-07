@@ -13,30 +13,7 @@ float response = 0.0;
 
 void bubbleSort(struct node *start);
 
-void reverseList()
-{
-    struct node *prevNode, *curNode;
-
-    if (head != NULL)
-    {
-        prevNode = head;
-        curNode = head->next;
-        head = head->next;
-
-        prevNode->next = NULL;
-
-        while (head != NULL)
-        {
-            head = head->next;
-            curNode->next = prevNode;
-
-            prevNode = curNode;
-            curNode = head;
-        }
-
-        head = prevNode;
-    }
-}
+void reverseList();
 
 float waiting_time(struct node *temp)
 {
@@ -141,8 +118,8 @@ void swap(struct node *a, struct node *b)
 void bubbleSort(struct node *start)
 {
     int swapped;
-    struct node *ptr1;
-    struct node *lptr = NULL;
+    struct node *ptr;
+    struct node *left = NULL;
 
     /* Checking for empty list */
     if (start == NULL)
@@ -151,17 +128,42 @@ void bubbleSort(struct node *start)
     do
     {
         swapped = 0;
-        ptr1 = start;
+        ptr = start;
 
-        while (ptr1->next != lptr)
+        while (ptr->next != left)
         {
-            if (ptr1->task->priority < ptr1->next->task->priority)
+            if (ptr->task->priority < ptr->next->task->priority)
             {
-                swap(ptr1, ptr1->next);
+                swap(ptr, ptr->next);
                 swapped = 1;
             }
-            ptr1 = ptr1->next;
+            ptr = ptr->next;
         }
-        lptr = ptr1;
+        left = ptr;
     } while (swapped);
+}
+
+void reverseList()
+{
+    struct node *prev, *curr;
+
+    if (head != NULL)
+    {
+        prev = head;
+        curr = head->next;
+        head = head->next;
+
+        prev->next = NULL;
+
+        while (head != NULL)
+        {
+            head = head->next;
+            curr->next = prev;
+
+            prev = curr;
+            curr = head;
+        }
+
+        head = prev;
+    }
 }

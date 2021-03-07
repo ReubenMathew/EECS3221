@@ -13,26 +13,26 @@ float response = 0.0;
 
 void reverseList()
 {
-    struct node *prevNode, *curNode;
+    struct node *prev, *curr;
 
     if (head != NULL)
     {
-        prevNode = head;
-        curNode = head->next;
+        prev = head;
+        curr = head->next;
         head = head->next;
 
-        prevNode->next = NULL;
+        prev->next = NULL;
 
         while (head != NULL)
         {
             head = head->next;
-            curNode->next = prevNode;
+            curr->next = prev;
 
-            prevNode = curNode;
-            curNode = head;
+            prev = curr;
+            curr = head;
         }
 
-        head = prevNode;
+        head = prev;
     }
 }
 
