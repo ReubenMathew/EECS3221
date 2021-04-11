@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #define BUFFER_SIZE 256
+#define MAX_ADDRESSES 1000
 
 typedef struct
 {
@@ -19,98 +20,99 @@ typedef struct
 
 address *LogicalAddresses;
 page *PageTable;
+int pagetable_len;
 
-int PageExists(int page_number, int pagetable_length)
-{
-    for (int j = 0; j < pagetable_length; j++)
-    {
-        if (page_number == PageTable[j].page_number)
-        {
-            return j;
-        }
-    }
-    return -1;
-}
+int TABLE_SIZE;
+char *backingstore_filename;
+
+int PageTableQuery(int address, int pagetable_len);
+void PageTableInsert(address *Address);
 
 int main(int argc, char **argv)
 {
-    if (argc < 3)
-        return 1;
-
-    LogicalAddresses = malloc(sizeof(*LogicalAddresses) * 1024);
-    int logical_addresses_idx = 0;
-
-    int TABLE_SIZE = atoi(argv[1]);
-    char *backingstore_filename = argv[2];
+    TABLE_SIZE = atoi(argv[1]);
+    backingstore_filename = argv[2];
     char *addresses_filename = argv[3];
 
     FILE *addressFile = fopen(addresses_filename, "r");
     char *temp;
     char buffer[BUFFER_SIZE];
 
-    u_int16_t address;
-    u_int8_t page_number;
-    u_int8_t offset;
+    u_int16_t temp_address;
+    u_int8_t temp_page_number;
+    u_int8_t temp_offset;
+
+    LogicalAddresses = malloc(MAX_ADDRESSES * sizeof(*LogicalAddresses));
+    int logical_addresses_idx = 0;
 
     while (fgets(buffer, BUFFER_SIZE, addressFile) != NULL)
     {
         temp = strdup(buffer);
-        address = atoi(temp);
+        temp_address = atoi(temp);
         // bit-masking to get page_number and page offset
-        page_number = (address >> 8) & 0xff;
-        offset = address & 0xff;
+        temp_page_number = (temp_address >> 8) & 0xff;
+        temp_offset = temp_address & 0xff;
 
-        LogicalAddresses[logical_addresses_idx].address = address;
-        LogicalAddresses[logical_addresses_idx].page_number = page_number;
-        LogicalAddresses[logical_addresses_idx].offset = offset;
+        LogicalAddresses[logical_addresses_idx].address = temp_address;
+        LogicalAddresses[logical_addresses_idx].page_number = temp_page_number;
+        LogicalAddresses[logical_addresses_idx].offset = temp_offset;
         logical_addresses_idx++;
     }
     fclose(addressFile);
 
-    PageTable = malloc(sizeof(page) * TABLE_SIZE);
-    int PageTable_size = 0;
+    // Go through each logical address
+    PageTable = malloc(TABLE_SIZE * sizeof(*PageTable));
+    pagetable_len = 0;
+    int index;
+    for (int addr_idx = 0; addr_idx < MAX_ADDRESSES; addr_idx++)
+    {
+        address curr_addr = LogicalAddresses[addr_idx];
+        index = PageTableQuery(curr_addr.page_number, pagetable_len);
+        if (index == -1)
+        {
+            address *toInsert = &curr_addr;
+            PageTableInsert(toInsert);
+        }
+    }
 
+    for (int i = 0; i < pagetable_len; i++)
+    {
+        printf("Page Number: %d   \tIndex: %d   \tData:%x\n", PageTable[i].page_number, i, PageTable[i].byte_data[3]);
+    }
+
+    return 0;
+}
+
+// Inserts address into page table in a FIFO fashion
+void PageTableInsert(address *Address)
+{
     FILE *binstore_file = fopen(backingstore_filename, "rb");
     char c;
 
-    for (int i = 0; i < logical_addresses_idx; i++)
+    int page_offset = (Address->page_number * 256);
+    /* Seek to the correct page */
+    fseek(binstore_file, page_offset, SEEK_SET);
+
+    PageTable[pagetable_len].page_number = Address->page_number;
+    PageTable[pagetable_len].byte_data = malloc(sizeof(char) * 256);
+
+    for (int j = 0, max = TABLE_SIZE; j < max && (c = getc(binstore_file)) != EOF; j++)
+        PageTable[pagetable_len].byte_data[j] = c;
+
+    // printf("inserting %d at %d\n", Address->page_number, pagetable_len);
+    pagetable_len++;
+}
+
+// Iterates through page table and returns the index of the page (which is the physical page number)
+// If the entry is not found in the page table, returns -1 for error
+int PageTableQuery(int page_number, int pagetable_len)
+{
+    for (int i = 0; i < pagetable_len; i++)
     {
-        int page_number = PageExists(LogicalAddresses[i].page_number, PageTable_size);
-        if (page_number == -1)
+        if (PageTable[i].page_number == page_number)
         {
-            printf("Page Number: %d not found...", LogicalAddresses[i].page_number);
-            // does not find page
-            int page_offset = (LogicalAddresses[i].page_number * 256);
-
-            /* Seek to the beginning of the file */
-            fseek(binstore_file, page_offset, SEEK_SET);
-            // printf("%0x\n", ftell(binstore_file));
-
-            PageTable[i].page_number = LogicalAddresses[i].page_number;
-            PageTable[i].byte_data = malloc(sizeof(char) * 256);
-
-            
-            for (int j = 0, max = TABLE_SIZE; j < max && (c = getc(binstore_file)) != EOF; j++)
-                PageTable[i].byte_data[j] = c;
-
-            page_number = PageTable_size;
-            printf(" inserting at %d\n", page_number);
-            PageTable_size++;
-        }
-        else
-        {
-            printf("Page Number: %d found at %d\n", LogicalAddresses[i].page_number, page_number);
+            return i;
         }
     }
-    fclose(binstore_file);
-
-    // for (int i = 0; i < TABLE_SIZE; i++)
-    // {
-    //     if (PageTable[i].page_number == 2)
-    //         printf("Page Number:%d    \t Data:%x\n", PageTable[i].page_number, (u_int)PageTable[i].byte_data[3]);
-    // }
-
-    free(PageTable);
-
-    return 0;
+    return -1;
 }
