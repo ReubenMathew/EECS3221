@@ -21,12 +21,14 @@ typedef struct
 address *LogicalAddresses;
 page *PageTable;
 int pagetable_len;
+int pagefault_count = 0;
 
 int TABLE_SIZE;
 char *backingstore_filename;
 
 int PageTableQuery(int address, int pagetable_len);
-void PageTableInsert(address *Address);
+int PageTableInsert(address *Address);
+page GetPage(int index);
 
 int main(int argc, char **argv)
 {
@@ -57,13 +59,16 @@ int main(int argc, char **argv)
         LogicalAddresses[logical_addresses_idx].page_number = temp_page_number;
         LogicalAddresses[logical_addresses_idx].offset = temp_offset;
         logical_addresses_idx++;
+        // printf("%d %d %d\n", temp_address, temp_page_number, temp_offset);
     }
     fclose(addressFile);
+
+    FILE *output256 = fopen("output256.csv", "w+");
 
     // Go through each logical address
     PageTable = malloc(TABLE_SIZE * sizeof(*PageTable));
     pagetable_len = 0;
-    int index;
+    int index, physical_addr;
     for (int addr_idx = 0; addr_idx < MAX_ADDRESSES; addr_idx++)
     {
         address curr_addr = LogicalAddresses[addr_idx];
@@ -71,20 +76,37 @@ int main(int argc, char **argv)
         if (index == -1)
         {
             address *toInsert = &curr_addr;
-            PageTableInsert(toInsert);
+            index = PageTableInsert(toInsert);
         }
-    }
+        physical_addr = (index << 8) + curr_addr.offset;
+        // printf("%x   \t%x   \t%x\t", index, curr_addr.offset, physical_addr);
+        page temp_page = GetPage(index);
+        char byte = temp_page.byte_data[curr_addr.offset];
 
-    for (int i = 0; i < pagetable_len; i++)
-    {
-        printf("Page Number: %d   \tIndex: %d   \tData:%x\n", PageTable[i].page_number, i, PageTable[i].byte_data[3]);
+        fprintf(output256, "%d,%d,%d\n", curr_addr.address, physical_addr, byte);
     }
+    // Statistics
+    float pagefault_rate = (float)pagefault_count / MAX_ADDRESSES * 100;
+    fprintf(output256, "Page Faults Rate, %.2f%,\n", pagefault_rate);
+
+    fprintf(output256, "TLB Hits Rate, %.2f%,", pagefault_rate - pagefault_rate);
+    fclose(output256);
+
+    // for (int i = 0; i < pagetable_len; i++)
+    // {
+    //     // printf("Page Number: %d   \tIndex: %d   \tData:%x\n", PageTable[i].page_number, i, PageTable[i].byte_data[3]);
+    // }
 
     return 0;
 }
 
-// Inserts address into page table in a FIFO fashion
-void PageTableInsert(address *Address)
+page GetPage(int index)
+{
+    return PageTable[index];
+}
+
+// Inserts address into page table in a FIFO fashion, returns index of newly inserted entry
+int PageTableInsert(address *Address)
 {
     FILE *binstore_file = fopen(backingstore_filename, "rb");
     char c;
@@ -100,7 +122,7 @@ void PageTableInsert(address *Address)
         PageTable[pagetable_len].byte_data[j] = c;
 
     // printf("inserting %d at %d\n", Address->page_number, pagetable_len);
-    pagetable_len++;
+    return pagetable_len++;
 }
 
 // Iterates through page table and returns the index of the page (which is the physical page number)
@@ -114,5 +136,6 @@ int PageTableQuery(int page_number, int pagetable_len)
             return i;
         }
     }
+    pagefault_count++;
     return -1;
 }
