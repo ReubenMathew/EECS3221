@@ -4,6 +4,7 @@
 
 #define BUFFER_SIZE 256
 #define MAX_ADDRESSES 1000
+#define TLB_SIZE 16
 
 typedef struct
 {
@@ -18,14 +19,25 @@ typedef struct
     int offset;
 } address;
 
+typedef struct
+{
+    int tag;
+    int page_number;
+} tlb_entry;
+
+tlb_entry *TLB;
 address *LogicalAddresses;
 page *PageTable;
+
 int pagetable_len;
 int pagefault_count = 0;
+int tlbhit_count = 0;
 
 int TABLE_SIZE;
 char *backingstore_filename;
 
+int TLBQuery(int address);
+void TLBInsert(int tag, int physical_page_number);
 int PageTableQuery(int address, int pagetable_len);
 int PageTableInsert(address *Address);
 page GetPage(int index);
@@ -65,14 +77,21 @@ int main(int argc, char **argv)
 
     FILE *output256 = fopen("output256.csv", "w+");
 
-    // Go through each logical address
+    TLB = malloc(TLB_SIZE * sizeof(*TLB));
+
     PageTable = malloc(TABLE_SIZE * sizeof(*PageTable));
     pagetable_len = 0;
     int index, physical_addr;
+    // Go through each logical address
     for (int addr_idx = 0; addr_idx < MAX_ADDRESSES; addr_idx++)
     {
         address curr_addr = LogicalAddresses[addr_idx];
+
+        //query for address in TLB
+        TLBQuery(curr_addr.page_number);
+        // query for address in pagetable
         index = PageTableQuery(curr_addr.page_number, pagetable_len);
+        // pagefault -> add to pagetable
         if (index == -1)
         {
             address *toInsert = &curr_addr;
@@ -88,9 +107,14 @@ int main(int argc, char **argv)
     // Statistics
     float pagefault_rate = (float)pagefault_count / MAX_ADDRESSES * 100;
     fprintf(output256, "Page Faults Rate, %.2f%,\n", pagefault_rate);
-
-    fprintf(output256, "TLB Hits Rate, %.2f%,", pagefault_rate - pagefault_rate);
+    float tlbhit_rate = (float)(tlbhit_count + 1) / MAX_ADDRESSES * 100;
+    fprintf(output256, "TLB Hits Rate, %.2f%,", tlbhit_rate);
     fclose(output256);
+
+    // for (int i = 0; i < TLB_SIZE; i++)
+    // {
+    //     printf("%d    \t%d\n", TLB[i].tag, TLB[i].page_number);
+    // }
 
     // for (int i = 0; i < pagetable_len; i++)
     // {
@@ -100,12 +124,39 @@ int main(int argc, char **argv)
     return 0;
 }
 
+int insertIndex = 0;
+void TLBInsert(int tag, int physical_page_number)
+{
+    if (insertIndex >= TLB_SIZE)
+        insertIndex = 0;
+    TLB[insertIndex].tag = tag;
+    TLB[insertIndex].page_number = physical_page_number;
+    // printf("Inserting: %d %d\n", TLB[insertIndex].tag, TLB[insertIndex].page_number);
+    insertIndex++;
+}
+
+// Iterates through TLB and returns the correct physical address
+// If the entry is not found in the TLB, returns -1
+int TLBQuery(int page_number)
+{
+    for (int i = 0; i < TLB_SIZE; i++)
+    {
+        if (TLB[i].tag == page_number)
+        {
+            tlbhit_count++;
+            return TLB[i].page_number;
+        }
+    }
+    return -1;
+}
+
 page GetPage(int index)
 {
     return PageTable[index];
 }
 
 // Inserts address into page table in a FIFO fashion, returns index of newly inserted entry
+// TODO: update TLB as well
 int PageTableInsert(address *Address)
 {
     FILE *binstore_file = fopen(backingstore_filename, "rb");
@@ -122,6 +173,7 @@ int PageTableInsert(address *Address)
         PageTable[pagetable_len].byte_data[j] = c;
 
     // printf("inserting %d at %d\n", Address->page_number, pagetable_len);
+    TLBInsert(Address->page_number, pagetable_len);
     return pagetable_len++;
 }
 
@@ -133,6 +185,7 @@ int PageTableQuery(int page_number, int pagetable_len)
     {
         if (PageTable[i].page_number == page_number)
         {
+            TLBInsert(page_number, i);
             return i;
         }
     }
